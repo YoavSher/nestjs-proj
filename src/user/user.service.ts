@@ -56,4 +56,8 @@ export class UserService {
         delete user.password
         return user
     }
+    async getUserById(userId: number): Promise<UserEntity> {
+        const user = await this.userRepository.findOne({ where: { id: userId } })
+        return user
+    }
 }
