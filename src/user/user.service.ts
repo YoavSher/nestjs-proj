@@ -8,6 +8,7 @@ import { sign } from 'jsonwebtoken'
 import { JWT_SECRET } from "src/config";
 import { UserResponse } from "./types/userResponse.interface";
 import { UserLoginDto } from "./dto/userLogin.dto";
+import { UpdateUserDto } from "./dto/updateUser.dto";
 
 
 @Injectable()
@@ -59,5 +60,10 @@ export class UserService {
     async getUserById(userId: number): Promise<UserEntity> {
         const user = await this.userRepository.findOne({ where: { id: userId } })
         return user
+    }
+    async updateUser(userId: number, updatedInfo: UpdateUserDto): Promise<UserEntity> {
+        const user = await this.getUserById(userId)
+        Object.assign(user, updatedInfo)
+        return await this.userRepository.save(user)
     }
 }
