@@ -30,7 +30,7 @@ export class UserController {
         return this.userService.buildUserResponse(user)
     }
     @Put('user')
-    @UseGuards()
+    @UseGuards(AuthGuard)
     async updateUser(@Body('user') updatedInfo: UpdateUserDto, @User('id') id: number)
         : Promise<UserResponse> {
         // console.log('user:', user)
