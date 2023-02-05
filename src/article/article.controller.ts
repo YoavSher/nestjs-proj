@@ -47,9 +47,23 @@ export class ArticleController {
     @UseGuards(AuthGuard)
     async updateArticle(@User('id') authorId: number,
         @Param('slug') slug: string,
-        @Body('article') articleInfo: UpdatedArticleDto) {
+        @Body('article') articleInfo: UpdatedArticleDto): Promise<ArticleResponse> {
 
         const article = await this.articleService.updateArticle(authorId, slug, articleInfo)
+        return this.articleService.buildArticleResponse(article)
+    }
+
+    @Post(':slug/favorite')
+    @UseGuards(AuthGuard)
+    async likeArticle(@User('id') userId: number, @Param('slug') slug: string): Promise<ArticleResponse> {
+        const article = await this.articleService.likeArticle(userId, slug)
+        return this.articleService.buildArticleResponse(article)
+    }
+
+    @Delete(':slug/favorite')
+    @UseGuards(AuthGuard)
+    async disLikeArticle(@User('id') userId: number, @Param('slug') slug: string) {
+        const article = await this.articleService.disLikeArticle(userId, slug)
         return this.articleService.buildArticleResponse(article)
     }
 }

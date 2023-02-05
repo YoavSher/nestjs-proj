@@ -36,17 +36,38 @@ export class ArticleService {
             })
         }
 
+        if (filterBy.favorited) {
+
+            const author = await this.userRepository.
+                findOne({ where: { username: filterBy.favorited }, relations: ['favorites'] })
+            const articlesIds = author.favorites.map(a => a.id)
+            // console.log('articlesIds:', articlesIds)
+            if (articlesIds.length) {
+                queryBuilder.andWhere('articles.id IN (:...articlesIds)', { articlesIds })
+            } else queryBuilder.andWhere('1 = 0')
+        }
+
         const articlesCount = await queryBuilder.getCount()
 
         if (filterBy.limit) queryBuilder.limit(filterBy.limit)
 
         if (filterBy.offset) queryBuilder.offset(filterBy.offset)
 
+        let favoriteIds: number[] = []
+        if (authorId) {
+            const author = await this.userRepository.
+                findOne({ where: { id: authorId }, relations: ['favorites'] })
+            favoriteIds = author.favorites.map(a => a.id)
+        }
+
         const articles = await queryBuilder.getMany()
+        const articlesWithFavorite = articles.map(a => {
+            const favorited = favoriteIds.some(ar => ar === a.id)
+            return { ...a, favorited }
+        })
 
 
-
-        return { articles, articlesCount }
+        return { articles: articlesWithFavorite, articlesCount }
     }
 
     buildArticleResponse(article: ArticleEntity): ArticleResponse {
@@ -60,11 +81,11 @@ export class ArticleService {
         newArticle.slug = this.getSlug(articleInfo.title)
         return await this.articleRepository.save(newArticle)
     }
-    async getArticleBySlug(slug: string): Promise<ArticleEntity> {
-        console.log('slug:', slug)
-        return await this.articleRepository.findOne({ where: { slug } })
 
+    async getArticleBySlug(slug: string): Promise<ArticleEntity> {
+        return await this.articleRepository.findOne({ where: { slug } })
     }
+
     async deleteArticle(authorId: number, slug: string): Promise<DeleteResult> {
         const article = await this.getArticleBySlug(slug)
         if (!article) {
@@ -92,6 +113,42 @@ export class ArticleService {
         }
         return await this.articleRepository.save(article)
     }
+
+    async likeArticle(userId: number, slug: string): Promise<ArticleEntity> {
+
+        const user = await this.userRepository.findOne({ where: { id: userId }, relations: ['favorites'] })
+        if (!user) {
+            throw new HttpException('Not authorized', HttpStatus.UNAUTHORIZED)
+        }
+        const article = await this.getArticleBySlug(slug)
+        const isArticleFavorite = user.favorites.findIndex(a => a.id === article.id) === -1
+        if (isArticleFavorite) {
+            user.favorites.push(article)
+            article.favoritesCount++
+            await this.userRepository.save(user)
+            return await this.articleRepository.save(article)
+        }
+        // console.log('user:', user)
+        return article
+    }
+
+    async disLikeArticle(userId: number, slug: string) {
+        const user = await this.userRepository.findOne({ where: { id: userId }, relations: ['favorites'] })
+        if (!user) {
+            throw new HttpException('Not authorized', HttpStatus.UNAUTHORIZED)
+        }
+        const article = await this.getArticleBySlug(slug)
+        const articleIdx = user.favorites.findIndex(a => a.id === article.id)
+        if (articleIdx !== -1) {
+            user.favorites.splice(articleIdx, 1)
+            article.favoritesCount--
+            await this.userRepository.save(user)
+            return await this.articleRepository.save(article)
+        }
+        console.log('user:', user)
+        return article
+    }
+
     private getSlug(slug: string): string {
         return `${slugify(slug, { lower: true })}-${(Math.random() * Math.pow(36, 6) | 0).toString(36)}`
     }
